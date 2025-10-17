@@ -203,7 +203,82 @@
     .about{grid-template-columns:1fr;gap:14px}
     .about-right{order:-1}
     .projects-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  }/* Extra small devices (phones <400px) */
+@media (max-width: 400px) {
+
+  html, body {
+    overflow-x: hidden;
   }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  nav {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
+  nav a {
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+
+  .hero {
+    margin: 16px;
+    padding: 16px;
+    gap: 18px;
+  }
+
+  .hero-left p {
+    font-size: 14px;
+  }
+
+  .profile-frame {
+    width: 160px;
+    height: 160px;
+  }
+
+  .profile {
+    width: 140px;
+    height: 140px;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .about {
+    padding: 16px;
+  }
+
+  .about-right {
+    padding: 12px;
+  }
+
+  .contact-card {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .socials {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+}
   @media (max-width:520px){
     header{padding:10px 14px}
     .hero{padding:18px}
@@ -220,3 +295,4 @@
   .fade.show{opacity:1}
 
   @keyframes floaty {0%{transform:translateY(0)}50%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+
