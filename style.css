@@ -9,7 +9,7 @@
     --text: #e6e8ee;
     --soft-glow: 0 10px 30px rgba(122,0,255,0.06);
     --btn-gradient: linear-gradient(90deg, #6f2cff, #00d8ff);
-    --profile-rotate: 0deg; /* changed to rotate images 90° */
+    --profile-rotate: 90deg; /* changed to rotate images 90° */
     --transition-fast: .18s;
     --transition-mid: .35s;
   }
@@ -403,3 +403,4 @@
     filter: blur(2.5px);
   }
 }
+
