@@ -25,8 +25,113 @@
     }, 30); // Reduced from 50 to 30 for smoother trail
   });
 
-  document.getElementById('year').textContent = new Date().getFullYear();
-  document.getElementById('openGit').addEventListener('click', () => window.open('https://github.com/MirzaKhalilUlRehman', '_blank'));
+  const GITHUB_USER = 'MirzaKhalilUlRehman';
+  const CACHE_KEY = 'gh_repos_cache_v1';
+  const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+  const INITIAL_COUNT = 6;
+
+  const stProjects = document.getElementById('st-projects');
+  const stStars = document.getElementById('st-stars');
+  const projectsGrid = document.getElementById('projectsGrid');
+  const seeMoreBtn = document.getElementById('seeMoreBtn');
+  const openGitBtn = document.getElementById('openGit');
+  const yearSpan = document.getElementById('year');
+
+  yearSpan.textContent = new Date().getFullYear();
+
+  openGitBtn.addEventListener('click', () => {
+    window.open(`https://github.com/${GITHUB_USER}`, '_blank', 'noopener,noreferrer');
+  });
+
+  seeMoreBtn.addEventListener('click', () => {
+    const expanded = seeMoreBtn.getAttribute('aria-expanded') === 'true';
+    seeMoreBtn.setAttribute('aria-expanded', String(!expanded));
+    seeMoreBtn.textContent = expanded ? 'See More' : 'Show Less';
+    renderRepos(window.__gh_repos || [], expanded ? INITIAL_COUNT : 100);
+  });
+
+  async function fetchRepos() {
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (cached && (Date.now() - cached.ts) < CACHE_TTL) return cached.data;
+
+      const url = `https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=owner`;
+      const res = await fetch(url, { headers: { Accept: 'application/vnd.github.v3+json' } });
+      if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+      const data = await res.json();
+
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+      return data;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  }
+
+  function renderRepos(rawRepos = [], limit = INITIAL_COUNT) {
+    const repos = rawRepos
+      .filter(r => !r.fork && !r.archived) // remove forks/archived if desired
+      .sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0));
+
+    // Update stats
+    const totalProjects = repos.length;
+    const totalStars = repos.reduce((s, r) => s + (r.stargazers_count || 0), 0);
+    stProjects.textContent = totalProjects;
+    stStars.textContent = totalStars;
+
+    if (!repos.length) {
+      projectsGrid.innerHTML = '<div> No projects found. </div>';
+      return;
+    }
+
+    const shown = repos.slice(0, limit);
+    projectsGrid.innerHTML = '';
+    shown.forEach(repo => {
+      const a = document.createElement('a');
+      a.className = 'project-card';
+      a.href = repo.html_url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.innerHTML = `
+        <div class="proj-title">${escapeHtml(repo.name)}</div>
+        <div class="proj-desc">${escapeHtml(repo.description || '')}</div>
+        <div class="proj-meta">
+          <span class="lang">${escapeHtml(repo.language || '')}</span>
+          <span class="stars">★ ${repo.stargazers_count || 0}</span>
+        </div>
+      `;
+      projectsGrid.appendChild(a);
+    });
+
+    // Toggle See More visibility
+    if (repos.length > INITIAL_COUNT) {
+      seeMoreBtn.style.display = 'inline-block';
+      const expanded = seeMoreBtn.getAttribute('aria-expanded') === 'true';
+      seeMoreBtn.textContent = expanded ? 'Show Less' : 'See More';
+    } else {
+      seeMoreBtn.style.display = 'none';
+    }
+  }
+
+  // small helper to prevent injection
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // init
+  (async () => {
+    projectsGrid.textContent = 'Loading projects…';
+    const data = await fetchRepos();
+    if (!data) {
+      projectsGrid.textContent = 'Failed to load projects. Try again later.';
+      return;
+    }
+    window.__gh_repos = data;
+    renderRepos(data, INITIAL_COUNT);
+  })();
 
 
   const reveals = document.querySelectorAll('.reveal');
@@ -37,133 +142,9 @@
   }, { threshold: 0.09 });
   reveals.forEach(r => io.observe(r));
 
-  const GITHUB_USER = 'MirzaKhalilUlRehman';
-  const projectsGrid = document.getElementById('projectsGrid');
-  const stProjects = document.getElementById('st-projects');
-  const stStars = document.getElementById('st-stars');
-  const seeMoreBtn = document.getElementById('seeMoreBtn');
-
-
-  async function fetchWithCache(url, key, ttl = 2 * 60 * 1000) {
-    try {
-      const cached = sessionStorage.getItem(key);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.ts < ttl) return parsed.data;
-      }
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error('GitHub API: ' + res.status);
-      const data = await res.json();
-      sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data }));
-      return data;
-    } catch (e) {
-      console.error(e);
-      return null;
-    }
-  }
-
-  function esc(s) { if (!s) return ''; return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
-
-  function makeCard(repo) {
-    const div = document.createElement('div');
-    div.className = 'proj';
-    const desc = repo.description ? esc(repo.description) : 'No description provided.';
-    const lang = repo.language ? esc(repo.language) : '—';
-    div.innerHTML = `
-        <h3>${esc(repo.name)}</h3>
-        <p>${desc}</p>
-        <div class="meta">
-          <span class="lang">${lang}</span>
-          <a href="${repo.html_url}" target="_blank" rel="noopener">View on GitHub →</a>
-        </div>
-      `;
-    return div;
-  }
-
-
-  function renderPaged(repos, firstN = 13) {
-    projectsGrid.innerHTML = '';
-    const visible = repos.slice(0, firstN);
-    const hidden = repos.slice(firstN);
-
-    visible.forEach(r => projectsGrid.appendChild(makeCard(r)));
-    hidden.forEach(r => {
-      const c = makeCard(r);
-      c.style.display = 'none'; c.classList.add('hidden-repo');
-      projectsGrid.appendChild(c);
-    });
-
-    stProjects.textContent = Math.min(repos.length, firstN);
-    const totalStars = repos.reduce((s, r) => s + (r.stargazers_count || 0), 0);
-    stStars.textContent = totalStars;
-
-    if (hidden.length === 0) {
-      seeMoreBtn.style.display = 'none';
-    } else {
-      seeMoreBtn.style.display = 'inline-block';
-      seeMoreBtn.setAttribute('aria-expanded', 'false');
-      seeMoreBtn.textContent = 'See More';
-      seeMoreBtn.onclick = () => {
-        const hiddenNodes = document.querySelectorAll('.hidden-repo');
-        const expanded = seeMoreBtn.getAttribute('aria-expanded') === 'true';
-        if (!expanded) {
-          hiddenNodes.forEach(n => { n.style.display = ''; n.classList.remove('hidden-repo'); });
-          seeMoreBtn.setAttribute('aria-expanded', 'true');
-          seeMoreBtn.textContent = 'Show Less';
-        } else {
-          hiddenNodes.forEach(n => { n.style.display = 'none'; n.classList.add('hidden-repo'); });
-          seeMoreBtn.setAttribute('aria-expanded', 'false');
-          seeMoreBtn.textContent = 'See More';
-          document.getElementById('projects').scrollIntoView({ behavior: 'smooth' });
-        }
-      };
-    }
-  }
-  (async function init() {
-    projectsGrid.textContent = 'Loading projects…';
-    const repos = await fetchWithCache(`https://api.github.com/users/${GITHUB_USER}/repos?per_page=100`, 'gh_repos_v2', 120000);
-    if (!repos) {
-      projectsGrid.innerHTML = '<div style="color:var(--muted);padding:12px">Unable to load projects right now.</div>';
-      stProjects.textContent = '13';
-      stStars.textContent = '--';
-      return;
-    }
-
-    const filtered = repos.filter(r => !r.fork).sort((a, b) => {
-      if ((b.stargazers_count || 0) !== (a.stargazers_count || 0)) return (b.stargazers_count || 0) - (a.stargazers_count || 0);
-      return new Date(b.updated_at) - new Date(a.updated_at);
-    });
-    renderPaged(filtered, 13);
-  })();
-
-
-  function animateNumber(el, to) {
-    if (!el) return;
-    const start = 0; const duration = 700; const stepTime = 20;
-    const steps = Math.ceil(duration / stepTime);
-    let current = start; let step = (to - start) / steps;
-    const iv = setInterval(() => {
-      current += step;
-      if ((step > 0 && current >= to) || (step < 0 && current <= to)) { el.textContent = to; clearInterval(iv); return; }
-      el.textContent = Math.round(current);
-    }, stepTime);
-  }
-  (function watchStats() {
-    const obs = new MutationObserver(() => {
-      const p = document.getElementById('st-projects');
-      const s = document.getElementById('st-stars');
-      if (p && p.textContent && s && s.textContent && p.textContent !== '--') {
-        animateNumber(p, parseInt(p.textContent) || 0);
-        animateNumber(s, parseInt(s.textContent) || 0);
-        obs.disconnect();
-      }
-    });
-    obs.observe(document.getElementById('projectsGrid'), { childList: true, subtree: true });
-  })();
-
   // Add this to handle active nav state
   document.querySelectorAll('nav a').forEach(link => {
-    if(link.getAttribute('href') === window.location.hash) {
+    if (link.getAttribute('href') === window.location.hash) {
       link.setAttribute('aria-current', 'page');
     }
   });
