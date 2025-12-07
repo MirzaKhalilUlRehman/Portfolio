@@ -55,7 +55,7 @@
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
       if (cached && (Date.now() - cached.ts) < CACHE_TTL) return cached.data;
 
-      const url = `https://api.github.com/users/${GITHUB_USER}/repos?per_page=100&type=owner`;
+      const url = `https://api.github.com/users/${GITHUB_USER}/repos?sort=updated&per_page=100&type=owner`;
       const res = await fetch(url, { headers: { Accept: 'application/vnd.github.v3+json' } });
       if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
       const data = await res.json();
@@ -70,7 +70,7 @@
 
   function renderRepos(rawRepos = [], limit = INITIAL_COUNT) {
     const repos = rawRepos
-      .filter(r => !r.fork && !r.archived) // remove forks/archived if desired
+      .filter(r => !r.fork && !r.archived)
       .sort((a, b) => (b.stargazers_count || 0) - (a.stargazers_count || 0));
 
     // Update stats
@@ -92,12 +92,33 @@
       a.href = repo.html_url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
+      
+      // Auto-generate GitHub Pages URL
+      const livePreviewUrl = repo.homepage || `https://${GITHUB_USER}.github.io/${repo.name}`;
+      
       a.innerHTML = `
-        <div class="proj-title">${escapeHtml(repo.name)}</div>
+        <div class="proj-header">
+          <div class="proj-title">${escapeHtml(repo.name)}</div>
+        </div>
         <div class="proj-desc">${escapeHtml(repo.description || '')}</div>
-        <div class="proj-meta">
-          <span class="lang">${escapeHtml(repo.language || '')}</span>
-          <span class="stars">★ ${repo.stargazers_count || 0}</span>
+        <div class="proj-footer">
+          <div class="proj-info">
+            <span class="lang">${escapeHtml(repo.language || 'N/A')}</span>
+            <span class="stars">★ ${repo.stargazers_count || 0}</span>
+          </div>
+          <div class="proj-actions">
+            <a href="${repo.html_url}" target="_blank" rel="noopener noreferrer" class="icon-link" title="View on GitHub">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V21"/>
+              </svg>
+            </a>
+            <a href="${livePreviewUrl}" target="_blank" rel="noopener noreferrer" class="icon-link" title="Live Preview">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </a>
+          </div>
         </div>
       `;
       projectsGrid.appendChild(a);
